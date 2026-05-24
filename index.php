@@ -56,10 +56,45 @@ if(isset($_GET['delete'])){
 }
 
 # READ
-$stmt = $pdo->query("
-    SELECT * FROM estudiantes
-    ORDER BY creado_en DESC
+# PAGINACIÓN
+
+$porPagina = 5;
+
+$paginaActual = isset($_GET['pagina'])
+    ? (int)$_GET['pagina']
+    : 1;
+
+if($paginaActual < 1){
+    $paginaActual = 1;
+}
+
+$offset = ($paginaActual - 1) * $porPagina;
+
+# TOTAL REGISTROS
+
+$totalStmt = $pdo->query("
+    SELECT COUNT(*) as total
+    FROM estudiantes
 ");
+
+$totalRegistros = $totalStmt->fetch()['total'];
+
+$totalPaginas = ceil($totalRegistros / $porPagina);
+
+# CONSULTA PAGINADA
+
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM estudiantes
+    ORDER BY creado_en DESC
+    LIMIT :limit
+    OFFSET :offset
+");
+
+$stmt->bindValue(':limit', $porPagina, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
+$stmt->execute();
 
 $estudiantes = $stmt->fetchAll();
 
@@ -184,6 +219,36 @@ Eliminar
 <?php endforeach; ?>
 
 </table>
+<div style="margin-top:20px;">
 
+<?php if($paginaActual > 1): ?>
+
+<a href="?pagina=<?= $paginaActual - 1 ?>">
+
+<button>
+Anterior
+</button>
+
+</a>
+
+<?php endif; ?>
+
+<span style="margin:0 10px;">
+Página <?= $paginaActual ?> de <?= $totalPaginas ?>
+</span>
+
+<?php if($paginaActual < $totalPaginas): ?>
+
+<a href="?pagina=<?= $paginaActual + 1 ?>">
+
+<button>
+Siguiente
+</button>
+
+</a>
+
+<?php endif; ?>
+
+</div>
 </body>
 </html>
