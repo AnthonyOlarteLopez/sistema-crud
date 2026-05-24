@@ -1,71 +1,189 @@
 <?php
-// config/database.php – Conexión PDO a Supabase (PostgreSQL cloud)
-function getDBConnection(): PDO {
-    $host = getenv('aws-1-us-east-1.pooler.supabase.com');  // db.xxxx.supabase.co
-    $port = getenv('5432');  // 5432
-    $name = getenv('postgres');  // postgres
-    $user = getenv('postgres.xknoblstxzvlnjavqgjh');  // postgres
-    $pass = getenv('dbclientes20##');  // tu contraseña
-$dsn = "pgsql:host={$host};port={$port};dbname={$name};sslmode=require";
-    return new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-}
- 
-// index.php – CRUD de estudiantes
+
 require_once 'config/database.php';
+
 $pdo = getDBConnection();
- 
-// CREATE: Insertar nuevo estudiante
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nombre'])) {
-    $stmt = $pdo->prepare(
-        "INSERT INTO estudiantes (nombre, email, carrera) VALUES (:n, :e, :c)"
-    );
+
+$error = '';
+
+# CREATE
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $nombre = trim($_POST['nombre']);
+    $email = trim($_POST['email']);
+    $carrera = trim($_POST['carrera']);
+
+    if(strlen($nombre) < 3 || strlen($nombre) > 100){
+        $error = "El nombre debe tener entre 3 y 100 caracteres";
+    }
+
+    elseif(!filter_var($email, FILTER_VALIDATE_EMAIL)){
+        $error = "Correo inválido";
+    }
+
+    else{
+
+        $stmt = $pdo->prepare("
+            INSERT INTO estudiantes(nombre,email,carrera)
+            VALUES(:n,:e,:c)
+        ");
+
+        $stmt->execute([
+            ':n' => htmlspecialchars($nombre),
+            ':e' => $email,
+            ':c' => htmlspecialchars($carrera)
+        ]);
+
+        header("Location: /");
+        exit;
+    }
+}
+
+# DELETE
+if(isset($_GET['delete'])){
+
+    $stmt = $pdo->prepare("
+        DELETE FROM estudiantes
+        WHERE id = :id
+    ");
+
     $stmt->execute([
-        ':n' => htmlspecialchars($_POST['nombre']),
-        ':e' => filter_var($_POST['email'], FILTER_SANITIZE_EMAIL),
-        ':c' => htmlspecialchars($_POST['carrera']),
+        ':id' => (int)$_GET['delete']
     ]);
-    header('Location: /'); exit;
+
+    header("Location: /");
+    exit;
 }
- 
-// DELETE: Eliminar estudiante
-if (isset($_GET['delete'])) {
-    $stmt = $pdo->prepare("DELETE FROM estudiantes WHERE id = :id");
-    $stmt->execute([':id' => (int)$_GET['delete']]);
-    header('Location: /'); exit;
-}
- 
-// READ: Listar todos los estudiantes
-$estudiantes = $pdo->query(
-    "SELECT * FROM estudiantes ORDER BY creado_en DESC"
-)->fetchAll();
+
+# READ
+$stmt = $pdo->query("
+    SELECT * FROM estudiantes
+    ORDER BY creado_en DESC
+");
+
+$estudiantes = $stmt->fetchAll();
+
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><title>Gestión de Estudiantes</title></head>
+<head>
+
+<meta charset="UTF-8">
+<title>CRUD Estudiantes</title>
+
+<style>
+
+body{
+    font-family: Arial;
+    margin:40px;
+}
+
+input{
+    padding:10px;
+    margin:5px;
+}
+
+button{
+    padding:10px;
+}
+
+table{
+    border-collapse: collapse;
+    width:100%;
+    margin-top:20px;
+}
+
+th,td{
+    border:1px solid #ccc;
+    padding:10px;
+}
+
+.error{
+    color:red;
+}
+
+</style>
+
+</head>
+
 <body>
-  <h2>Registrar Estudiante</h2>
-  <form method="POST">
-    <input name="nombre" placeholder="Nombre completo" required>
-    <input name="email"  type="email" placeholder="Email" required>
-    <input name="carrera" placeholder="Carrera" required>
-    <button type="submit">Guardar</button>
-  </form>
-  <h2>Lista de Estudiantes (<?= count($estudiantes) ?>)</h2>
-  <table border="1">
-    <tr><th>ID</th><th>Nombre</th><th>Email</th><th>Carrera</th><th>Acciones</th></tr>
-    <?php foreach ($estudiantes as $e): ?>
-    <tr>
-      <td><?= $e['id'] ?></td>
-      <td><?= htmlspecialchars($e['nombre']) ?></td>
-      <td><?= htmlspecialchars($e['email'])  ?></td>
-      <td><?= htmlspecialchars($e['carrera'])?></td>
-      <td><a href="?delete=<?= $e['id'] ?>"
-             onclick="return confirm('¿Eliminar?')">Eliminar</a></td>
-    </tr>
-    <?php endforeach; ?>
-  </table>
+
+<h1>CRUD Estudiantes</h1>
+
+<?php if($error): ?>
+<p class="error"><?= $error ?></p>
+<?php endif; ?>
+
+<form method="POST">
+
+<input
+name="nombre"
+placeholder="Nombre"
+required
+>
+
+<input
+name="email"
+type="email"
+placeholder="Email"
+required
+>
+
+<input
+name="carrera"
+placeholder="Carrera"
+required
+>
+
+<button type="submit">
+Guardar
+</button>
+
+</form>
+
+<h2>
+Lista de estudiantes (<?= count($estudiantes) ?>)
+</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Nombre</th>
+<th>Email</th>
+<th>Carrera</th>
+<th>Acciones</th>
+</tr>
+
+<?php foreach($estudiantes as $e): ?>
+
+<tr>
+
+<td><?= $e['id'] ?></td>
+
+<td><?= htmlspecialchars($e['nombre']) ?></td>
+
+<td><?= htmlspecialchars($e['email']) ?></td>
+
+<td><?= htmlspecialchars($e['carrera']) ?></td>
+
+<td>
+
+<a
+href="?delete=<?= $e['id'] ?>"
+onclick="return confirm('¿Eliminar?')"
+>
+Eliminar
+</a>
+
+</td>
+
+</tr>
+
+<?php endforeach; ?>
+
+</table>
+
 </body>
 </html>
