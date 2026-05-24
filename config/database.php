@@ -2,11 +2,11 @@
 
 function getDBConnection(): PDO {
 
-    $host = 'aws-1-us-east-1.pooler.supabase.com';
-    $port = '5432';
-    $name = 'postgres';
-    $user = 'postgres.xknoblstxzvlnjavqgjh';
-    $pass = 'dbclientes20##';
+    $host = getenv('DB_HOST');
+    $port = getenv('DB_PORT');
+    $name = getenv('DB_NAME');
+    $user = getenv('DB_USER');
+    $pass = getenv('DB_PASS');
 
     $dsn = "pgsql:host={$host};port={$port};dbname={$name};sslmode=require";
 
